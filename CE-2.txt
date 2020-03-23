@@ -1,0 +1,167 @@
+The device is running!
+#
+sysname CE-2
+#
+ip vpn-instance 5G-TRAFFIC
+ ipv4-family
+  route-distinguisher 5000:1
+  tnl-policy 5G-TRAFFIC
+  apply-label per-instance
+  vpn-target 5000:1 export-extcommunity
+  vpn-target 5000:1 import-extcommunity
+#
+bfd
+#
+mpls lsr-id 192.168.1.8
+mpls
+ mpls te
+ mpls rsvp-te
+ mpls rsvp-te bfd all-interfaces enable
+ mpls rsvp-te bfd all-interfaces min-tx-interval 100 min-rx-interval 100
+ mpls rsvp-te hello
+ mpls rsvp-te srefresh
+ mpls te cspf
+#
+explicit-path primary-pe-3
+ next hop 192.168.58.1 include loose
+#
+explicit-path secondary-pe-4
+ next hop 192.168.68.1 include loose
+#
+mpls ldp
+#
+#
+mpls ldp remote-peer pe3
+ remote-ip 192.168.1.5
+#
+mpls ldp remote-peer pe4
+ remote-ip 192.168.1.6
+#
+aaa
+ authentication-scheme default
+ authorization-scheme default
+ accounting-scheme default
+ domain default
+ domain default_admin
+ local-user admin password cipher %Om`F2hu2/939O4.`(ZG*{g#
+ local-user admin service-type http
+#
+isis 100
+ is-level level-2
+ cost-style wide
+ bfd all-interfaces enable
+ network-entity 10.0000.0092.0168.1008.00
+ is-name CE-2
+ import-route direct cost 10000 route-policy LoopBack0
+ traffic-eng level-2
+#
+firewall zone Local
+ priority 16
+#
+interface Ethernet0/0/0
+#
+interface Ethernet0/0/1
+ description 5G-RNC
+ ip binding vpn-instance 5G-TRAFFIC
+ ip address 10.10.10.2 255.255.255.0
+#
+interface Serial0/0/0
+ link-protocol ppp
+#
+interface Serial0/0/1
+ link-protocol ppp
+#
+interface Serial0/0/2
+ link-protocol ppp
+#
+interface Serial0/0/3
+ link-protocol ppp
+#
+interface GigabitEthernet0/0/0
+ description CE2-To-PE3
+ ip address 192.168.58.2 255.255.255.0
+ isis enable 100
+ isis circuit-type p2p
+ isis circuit-level level-2
+ mpls
+ mpls te
+ mpls rsvp-te
+ mpls rsvp-te hello
+ mpls ldp
+#
+interface GigabitEthernet0/0/1
+ description CE2-To-PE4
+ ip address 192.168.68.2 255.255.255.0
+ isis enable 100
+ isis circuit-type p2p
+ isis circuit-level level-2
+ mpls
+ mpls te
+ mpls rsvp-te
+ mpls rsvp-te hello
+ mpls ldp
+#
+interface GigabitEthernet0/0/2
+#
+interface GigabitEthernet0/0/3
+#
+wlan
+#
+interface NULL0
+#
+interface LoopBack0
+ ip address 192.168.1.8 255.255.255.255
+ isis enable 100
+#
+interface Tunnel0/0/300
+ ip address unnumbered interface LoopBack0
+ tunnel-protocol mpls te
+ destination 192.168.1.5
+ mpls te tunnel-id 300
+ mpls te record-route label
+ mpls te path explicit-path primary-pe-3
+ mpls te backup hot-standby mode revertive wtr 60
+ mpls te backup hot-standby overlap-path
+ mpls te reoptimization
+ mpls te commit
+#
+interface Tunnel0/0/400
+ ip address unnumbered interface LoopBack0
+ tunnel-protocol mpls te
+ destination 192.168.1.6
+ mpls te tunnel-id 400
+ mpls te record-route label
+ mpls te path explicit-path secondary-pe-4
+ mpls te backup hot-standby mode revertive wtr 60
+ mpls te backup hot-standby overlap-path
+ mpls te reoptimization
+ mpls te commit
+#
+bgp 100
+ router-id 192.168.1.8
+ peer 192.168.1.5 as-number 100
+ peer 192.168.1.5 connect-interface LoopBack0
+ peer 192.168.1.6 as-number 100
+ peer 192.168.1.6 connect-interface LoopBack0
+ #
+ ipv4-family unicast
+  undo synchronization
+  import-route direct
+  undo peer 192.168.1.5 enable
+  undo peer 192.168.1.6 enable
+ #
+ ipv4-family vpnv4
+  policy vpn-target
+  peer 192.168.1.5 enable
+  peer 192.168.1.6 enable
+ #
+ ipv4-family vpn-instance 5G-TRAFFIC
+  network 10.10.10.0 255.255.255.0
+  import-route direct
+#
+user-interface con 0
+user-interface vty 0 4
+user-interface vty 16 20
+#
+return
+<CE-2> 

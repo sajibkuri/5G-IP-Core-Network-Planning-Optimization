@@ -1,0 +1,230 @@
+The device is running!
+#
+sysname PE-3
+#
+switchover mode nonstop-routing
+#
+ip vpn-instance 5G-Network-Slicing
+ ipv4-family
+  route-distinguisher 6000:1
+  tnl-policy 5G-Network-Slicing
+  apply-label per-instance
+  vpn-target 6000:1 export-extcommunity
+  vpn-target 6000:1 import-extcommunity
+#
+ip vpn-instance 5G-TRAFFIC
+ ipv4-family
+  route-distinguisher 5000:1
+  tnl-policy 5G-TRAFFIC
+  apply-label per-instance
+  vpn-target 5000:1 export-extcommunity
+  vpn-target 5000:1 import-extcommunity
+#
+ip vpn-instance IoT-TRAFFIC
+ ipv4-family
+  route-distinguisher 7000:1
+  tnl-policy IoT-TRAFFIC
+  apply-label per-instance
+  vpn-target 7000:1 export-extcommunity
+  vpn-target 7000:1 import-extcommunity
+#
+bfd
+#
+mpls lsr-id 192.168.1.5
+mpls
+ mpls te
+ mpls rsvp-te
+ mpls rsvp-te bfd all-interfaces enable
+ mpls rsvp-te bfd all-interfaces min-tx-interval 100 min-rx-interval 100
+ mpls rsvp-te hello
+ mpls rsvp-te srefresh
+ mpls te cspf
+#
+explicit-path pe3-to-pe1
+ next hop 192.168.35.2 include loose
+#
+explicit-path pe3-to-pe2
+ next hop 192.168.35.2 include loose
+#
+explicit-path pe3-to-pe4
+ next hop 192.168.56.1 include loose
+#
+explicit-path primary-ce-2
+ next hop 192.168.58.2 include loose
+#
+mpls ldp
+#
+#
+mpls ldp remote-peer ce2
+ remote-ip 192.168.1.8
+#
+aaa
+ authentication-scheme default
+ authorization-scheme default
+ accounting-scheme default
+ domain default
+ domain default_admin
+ local-user admin password cipher 9!YD-r)4P-ani^>"qh^;<{_#
+ local-user admin service-type http
+#
+isis 100
+ is-level level-2
+ cost-style wide
+ bfd all-interfaces enable
+ network-entity 10.0092.0168.1005.00
+ is-name PE-3
+ traffic-eng level-2
+#
+firewall zone Local
+ priority 16
+#
+interface Ethernet0/0/0
+#
+interface Ethernet0/0/1
+#
+interface Serial0/0/0
+ link-protocol ppp
+#
+interface Serial0/0/1
+ link-protocol ppp
+#
+interface Serial0/0/2
+ link-protocol ppp
+#
+interface Serial0/0/3
+ link-protocol ppp
+#
+interface GigabitEthernet0/0/0
+ description PE3-To-CE2
+ ip address 192.168.58.1 255.255.255.0
+ isis enable 100
+ isis circuit-type p2p
+ isis circuit-level level-2
+ mpls
+ mpls te
+ mpls rsvp-te
+ mpls rsvp-te hello
+ mpls ldp
+#
+interface GigabitEthernet0/0/1
+#
+interface GigabitEthernet0/0/2
+ description PE3-To-PE4
+ ip address 192.168.56.1 255.255.255.0
+ isis enable 100
+ isis circuit-type p2p
+ isis circuit-level level-2
+ mpls
+ mpls te
+ mpls te bandwidth max-reservable-bandwidth 8000000
+ mpls te bandwidth bc0 8000000
+ mpls rsvp-te
+ mpls rsvp-te hello
+ mpls ldp
+#
+interface GigabitEthernet0/0/3
+ description PE3-To-P1
+ ip address 192.168.35.2 255.255.255.0
+ isis enable 100
+ isis circuit-type p2p
+ isis circuit-level level-2
+ mpls
+ mpls te
+ mpls te bandwidth max-reservable-bandwidth 8000000
+ mpls te bandwidth bc0 8000000
+ mpls rsvp-te
+ mpls rsvp-te hello
+ mpls ldp
+#
+wlan
+#
+interface NULL0
+#
+interface LoopBack0
+ ip address 192.168.1.5 255.255.255.255
+ isis enable 100
+#
+interface Tunnel0/0/300
+ ip address unnumbered interface LoopBack0
+ tunnel-protocol mpls te
+ destination 192.168.1.8
+ mpls te tunnel-id 300
+ mpls te record-route label
+ mpls te path explicit-path primary-ce-2
+ mpls te backup hot-standby mode revertive wtr 60
+ mpls te backup hot-standby overlap-path
+ mpls te reoptimization
+ mpls te commit
+#
+interface Tunnel0/0/301
+ ip address unnumbered interface LoopBack0
+ tunnel-protocol mpls te
+ destination 192.168.1.1
+ mpls te tunnel-id 301
+ mpls te record-route label
+ mpls te path explicit-path pe3-to-pe1
+ mpls te backup hot-standby mode revertive wtr 60
+ mpls te backup hot-standby overlap-path
+ mpls te reoptimization
+ mpls te commit
+#
+interface Tunnel0/0/302
+ ip address unnumbered interface LoopBack0
+ tunnel-protocol mpls te
+ destination 192.168.1.2
+ mpls te tunnel-id 302
+ mpls te record-route label
+ mpls te path explicit-path pe3-to-pe2
+ mpls te backup hot-standby mode revertive wtr 60
+ mpls te backup hot-standby overlap-path
+ mpls te reoptimization
+ mpls te commit
+#
+interface Tunnel0/0/304
+ ip address unnumbered interface LoopBack0
+ tunnel-protocol mpls te
+ destination 192.168.1.6
+ mpls te tunnel-id 304
+ mpls te record-route label
+ mpls te path explicit-path pe3-to-pe4
+ mpls te backup hot-standby mode revertive wtr 60
+ mpls te backup hot-standby overlap-path
+ mpls te reoptimization
+ mpls te commit
+#
+bgp 100
+ peer 192.168.1.3 as-number 100
+ peer 192.168.1.3 connect-interface LoopBack0
+ peer 192.168.1.4 as-number 100
+ peer 192.168.1.4 connect-interface LoopBack0
+ peer 192.168.1.8 as-number 100
+ peer 192.168.1.8 connect-interface LoopBack0
+ #
+ ipv4-family unicast
+  undo synchronization
+  undo peer 192.168.1.3 enable
+  undo peer 192.168.1.4 enable
+  undo peer 192.168.1.8 enable
+ #
+ ipv4-family vpnv4
+  policy vpn-target
+  peer 192.168.1.3 enable
+  peer 192.168.1.3 advertise-community
+  peer 192.168.1.4 enable
+  peer 192.168.1.4 advertise-community
+  peer 192.168.1.8 enable
+  peer 192.168.1.8 advertise-community
+ #
+ ipv4-family vpn-instance 5G-TRAFFIC
+  import-route direct
+#
+tunnel-policy IPRAN
+ tunnel select-seq cr-lsp load-balance-number 1
+#
+#
+user-interface con 0
+user-interface vty 0 4
+user-interface vty 16 20
+#
+return
+<PE-3>    

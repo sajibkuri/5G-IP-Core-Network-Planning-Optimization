@@ -1,0 +1,215 @@
+The device is running!
+#
+sysname CE-1
+#
+ip vpn-instance 5G-Network-Slicing
+ ipv4-family
+  route-distinguisher 6000:1
+  tnl-policy 5G-Network-Slicing
+  apply-label per-instance
+  vpn-target 6000:1 export-extcommunity
+  vpn-target 6000:1 import-extcommunity
+#
+ip vpn-instance 5G-TRAFFIC
+ ipv4-family
+  route-distinguisher 5000:1
+  tnl-policy 5G-TRAFFIC
+  apply-label per-instance
+  vpn-target 5000:1 export-extcommunity
+  vpn-target 5000:1 import-extcommunity
+#
+ip vpn-instance IoT-TRAFFIC
+ ipv4-family
+  route-distinguisher 7000:1
+  tnl-policy IoT-TRAFFIC
+  apply-label per-instance
+  vpn-target 7000:1 export-extcommunity
+  vpn-target 7000:1 import-extcommunity
+#
+bfd
+#
+mpls lsr-id 192.168.1.7
+mpls
+ mpls te
+ mpls rsvp-te
+ mpls rsvp-te bfd all-interfaces enable
+ mpls rsvp-te bfd all-interfaces min-tx-interval 100 min-rx-interval 100
+ mpls rsvp-te hello
+ mpls rsvp-te srefresh
+ mpls te cspf
+#
+explicit-path primary-pe-1
+ next hop 192.168.17.1 include loose
+#
+explicit-path secondary-pe-2
+ next hop 192.168.27.1 include loose
+#
+mpls ldp
+#
+#
+mpls ldp remote-peer pe1
+ remote-ip 192.168.1.1
+#
+mpls ldp remote-peer pe2
+ remote-ip 192.168.1.2
+#
+aaa
+ authentication-scheme default
+ authorization-scheme default
+ accounting-scheme default
+ domain default
+ domain default_admin
+ local-user admin password cipher 5;H=B~:R>6:z9:%F`[a=+{i#
+ local-user admin service-type http
+#
+isis 1
+ is-level level-2
+ cost-style wide
+ bfd all-interfaces enable
+ network-entity 10.0000.0092.0168.1007.00
+ is-name CE-1-Backup
+ import-route direct cost 10000 route-policy LoopBack0
+ traffic-eng level-2
+#
+isis 100
+ is-level level-2
+ cost-style wide
+ bfd all-interfaces enable
+ network-entity 10.0000.0092.0168.1007.00
+ is-name CE-1
+ import-route direct cost 10000 route-policy LoopBack0
+ traffic-eng level-2
+#
+firewall zone Local
+ priority 16
+#
+interface Ethernet0/0/0
+ description 5G-OTN
+ ip binding vpn-instance 5G-Network-Slicing
+ ip address 20.20.20.1 255.255.255.0
+#
+interface Ethernet0/0/1
+ description g-NodeB
+ ip binding vpn-instance 5G-TRAFFIC
+ ip address 10.10.10.1 255.255.255.0
+#
+interface Serial0/0/0
+ link-protocol ppp
+#
+interface Serial0/0/1
+ link-protocol ppp
+#
+interface Serial0/0/2
+ link-protocol ppp
+#
+interface Serial0/0/3
+ link-protocol ppp
+#
+interface GigabitEthernet0/0/0
+ description CE1-To-PE1
+ ip address 192.168.17.2 255.255.255.0
+ isis enable 100
+ isis circuit-type p2p
+ isis circuit-level level-2
+ mpls
+ mpls te
+ mpls rsvp-te
+ mpls rsvp-te hello
+ mpls ldp
+#
+interface GigabitEthernet0/0/1
+ description CE1-To-PE2
+ ip address 192.168.27.2 255.255.255.0
+ isis enable 100
+ isis circuit-type p2p
+ isis circuit-level level-2
+ mpls
+ mpls te
+ mpls rsvp-te
+ mpls rsvp-te hello
+ mpls ldp
+#
+interface GigabitEthernet0/0/2
+ description IoT-Gateway
+ ip binding vpn-instance IoT-TRAFFIC
+ ip address 30.30.30.1 255.255.255.0
+#
+interface GigabitEthernet0/0/3
+#
+wlan
+#
+interface NULL0
+#
+interface LoopBack0
+ ip address 192.168.1.7 255.255.255.255
+ isis enable 100
+#
+interface Tunnel0/0/100
+ ip address unnumbered interface LoopBack0
+ tunnel-protocol mpls te
+ destination 192.168.1.1
+ mpls te tunnel-id 100
+ mpls te record-route label
+ mpls te path explicit-path primary-pe-1
+ mpls te backup hot-standby mode revertive wtr 60
+ mpls te backup hot-standby overlap-path
+ mpls te reoptimization
+ mpls te commit
+#
+interface Tunnel0/0/200
+ ip address unnumbered interface LoopBack0
+ tunnel-protocol mpls te
+ destination 192.168.1.2
+ mpls te tunnel-id 200
+ mpls te record-route label
+ mpls te path explicit-path secondary-pe-2
+ mpls te backup hot-standby mode revertive wtr 60
+ mpls te backup hot-standby overlap-path
+ mpls te reoptimization
+ mpls te commit
+#
+bgp 100
+ router-id 192.168.1.7
+ peer 192.168.1.1 as-number 100
+ peer 192.168.1.1 connect-interface LoopBack0
+ peer 192.168.1.2 as-number 100
+ peer 192.168.1.2 connect-interface LoopBack0
+ #
+ ipv4-family unicast
+  undo synchronization
+  import-route direct
+  undo peer 192.168.1.1 enable
+  undo peer 192.168.1.2 enable
+ #
+ ipv4-family vpnv4
+  policy vpn-target
+  peer 192.168.1.1 enable
+  peer 192.168.1.2 enable
+ #
+ ipv4-family vpn-instance 5G-Network-Slicing
+  network 20.20.20.0 255.255.255.0
+  import-route direct
+ #
+ ipv4-family vpn-instance 5G-TRAFFIC
+  network 10.10.10.0 255.255.255.0
+  import-route direct
+ #
+ ipv4-family vpn-instance IoT-TRAFFIC
+  network 30.30.30.0 255.255.255.0
+  import-route direct
+#
+route-policy LoopBack0 permit node 10
+ if-match ip-prefix LoopBack0
+#
+ip ip-prefix LoopBack0 index 1 permit 192.168.1.7 32
+#
+tunnel-policy IPRAN
+ tunnel select-seq cr-lsp load-balance-number 1
+#
+#
+user-interface con 0
+user-interface vty 0 4
+user-interface vty 16 20
+#
+return
+<CE-1>
